@@ -1,0 +1,37 @@
+# Build all the things we need for CI
+
+version: 2.1
+
+jobs:
+  Deploy Docker:
+    docker:
+      - image: circleci/python
+    steps:
+      - checkout
+      - setup_remote_docker
+
+      - run:
+          name: Build container image
+          command: |
+            docker build -t uniffi-ci:build -f docker/Dockerfile-build .
+      - run:
+          name: Push to Dockerhub
+          command: |
+            cd docker
+            if [ -n "${CIRCLE_TAG}" ]; then
+              # Strip the `docker-` prefix of the tag
+              TAG="${CIRCLE_TAG#docker-}"
+              ./deploy-dockerhub.sh "$TAG"
+              ./deploy-dockerhub.sh "latest"
+            fi
+
+workflows:
+  version: 2
+  deploy-docker:
+    jobs:
+      - Deploy Docker:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^docker-v.*/
